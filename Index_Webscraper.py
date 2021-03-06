@@ -110,8 +110,8 @@ def create_dataframe(features_of_company):
 def clean_dataframe(symbol):
     company_link = 'https://finance.yahoo.com/quote/{}/financials'.format(symbol)
     # sleep(randint(5,50))
-    features = driver_setup(company_link)
-    company_financials_df = create_dataframe(features)
+    single_company_features = driver_setup(company_link)
+    company_financials_df = create_dataframe(single_company_features)
     company_financials_df = pd.wide_to_long(
         company_financials_df, ['year_'], i='Breakdown', j='year', suffix='(\d+|\w+)')
     company_financials_df = company_financials_df.reset_index(level=[0, 1])
