@@ -11,29 +11,29 @@ import multiprocessing as mp
 ## extract the index companies
 
 # scrape for the companies
-def scrape_index_companies(link):
+def scrape_index_companies(index_link):
     driver = webdriver.Chrome(executable_path='chromedriver_path')
-    driver.get(link)
+    driver.get(index_link)
     html = driver.execute_script('return document.body.innerHTML;')
     soup = BeautifulSoup(html, 'lxml')
-    features = soup.find_all('tr', class_='Ta(end)')
+    requested_features = soup.find_all('tr', class_='Ta(end)')
     driver.quit()
-    return features
+    return requested_features
 
 
 # create a data frame with the companies
-def create_companies_df(features):
+def create_companies_df(requested_features):
     headers = []
     temp_list = []
     final = []
     index = 0
     # create headers
-    for item in features[0].find_all('th', class_='Ta(start)'):
+    for item in requested_features[0].find_all('th', class_='Ta(start)'):
         headers.append(item.text)
     # statement contents
-    while index <= len(features) - 1:
+    while index <= len(requested_features) - 1:
         # filter for each line of the statement
-        temp = features[index].find_all('td', class_='Ta(start)')
+        temp = requested_features[index].find_all('td', class_='Ta(start)')
         for line in temp:
             # each item adding to a temporary list
             temp_list.append(line.text)
@@ -42,16 +42,16 @@ def create_companies_df(features):
         # clear temp_list
         temp_list = []
         index += 1
-    companies_df = pd.DataFrame(final[1:])
-    companies_df.columns = headers
-    return companies_df
+    index_companies_df = pd.DataFrame(final[1:])
+    index_companies_df.columns = headers
+    return index_companies_df
 
 
 ## scrape the single companies in the index
 
 # driver setup for the single company scrape
-def driver_setup(link):
-    ERROR = True
+def driver_setup(single_company_link):
+    error = True
 
     options = webdriver.ChromeOptions()
     options.add_argument('incognito')
@@ -59,19 +59,19 @@ def driver_setup(link):
     options.add_argument('disable-popup-blocking')
     driver = webdriver.Chrome(options=options, executable_path='chromedriver_path')
     driver.create_options()
-    driver.get(link)
-    while ERROR is True:
+    driver.get(single_company_link)
+    while error is True:
         html = driver.execute_script('return document.body.innerHTML;')
         soup = BeautifulSoup(html, 'lxml')
         try:
             driver.find_element_by_id('header-logo')
-            ERROR = False
-            features = soup.find_all('div', class_='D(tbr)')
+            error = False
+            single_company_features = soup.find_all('div', class_='D(tbr)')
             driver.quit()
         except (NoSuchElementException, WebDriverException):
             sleep(30)
             driver.refresh()
-    return features
+    return single_company_features
 
 
 # create a data frame with the html
@@ -85,7 +85,7 @@ def create_dataframe(features_of_company):
         try:
             dt = datetime.strptime(item.text, '%m/%d/%Y')
             headers.append('year_' + str(dt.year))
-        except:
+        except ValueError:
             headers.append(item.text)
 
     # statement contents
@@ -111,12 +111,12 @@ def clean_dataframe(symbol):
     company_link = 'https://finance.yahoo.com/quote/{}/financials'.format(symbol)
     # sleep(randint(5,50))
     features = driver_setup(company_link)
-    company__financials_df = create_dataframe(features)
-    company__financials_df = pd.wide_to_long(company__financials_df, ['year_'], i='Breakdown', j='year',
-                                             suffix='(\d+|\w+)')
-    company__financials_df = company__financials_df.reset_index(level=[0, 1])
-    company__financials_df.insert(loc=0, column='Company', value=symbol)
-    return company__financials_df
+    company_financials_df = create_dataframe(features)
+    company_financials_df = pd.wide_to_long(
+        company_financials_df, ['year_'], i='Breakdown', j='year', suffix='(\d+|\w+)')
+    company_financials_df = company_financials_df.reset_index(level=[0, 1])
+    company_financials_df.insert(loc=0, column='Company', value=symbol)
+    return company_financials_df
 
 
 ## data clean medium: '-' are included and columns all have object dtype
@@ -159,9 +159,9 @@ def final_clean(cleaned_df):
     cleaned_df = cleaned_df.dropna()
     cleaned_df = cleaned_df.reset_index(drop=True)
 
-    # seperate ttm in new dataframe
+    # separate ttm in new dataframe
     cleaned_ttm = cleaned_df.loc[cleaned_df['Year'] == 'ttm']
-    final_ttm = cleaned_ttm.reset_index(drop=True)
+    cleaned_final_ttm = cleaned_ttm.reset_index(drop=True)
 
     # removing ttm
     cleaned_df = cleaned_df.drop(cleaned_df[cleaned_df['Year'] == 'ttm'].index)
@@ -170,8 +170,8 @@ def final_clean(cleaned_df):
     # reformat datatypes for columns
     cleaned_df['Year'] = cleaned_df['Year'].astype('int64')
     cleaned_df['Values'] = cleaned_df['Values'].astype('float')
-    final_df = cleaned_df
-    return final_df, final_ttm
+    cleaned_final_df = cleaned_df
+    return cleaned_final_df, cleaned_final_ttm
 
 
 if __name__ == '__main__':
